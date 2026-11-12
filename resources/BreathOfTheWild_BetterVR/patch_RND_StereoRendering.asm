@@ -29,6 +29,43 @@ currentFrameCounter:
 0x031FAF00 = calculateUIMaybe:
 0x031FA97C = jumpToFPSPlusPlus:
 
+0x10463798 = RuneMgr__sInstance:
+
+; The camera rune recognizes its subjects through occlusion queries, and the game collects their results in the draw done callback.
+; Cemu only has those results once the GPU has finished the draw calls, which is what the GX2DrawDone in front of that callback is for.
+; That GX2DrawDone is normally moved behind the OpenXR presentation (see patch_RND_StereoRendering_Optimizations.asm), so the results
+; only showed up in time when the GPU wasn't the bottleneck. Otherwise subjects would flicker or stay unrecognized (???).
+; While the camera rune is used the GPU is synced before the callback again, just like the game does.
+; The check has to match CemuHooks::IsCameraFinderModeActive()
+syncGpuForCameraRune:
+mflr r0
+stwu r1, -0x10(r1)
+stw r0, 0x14(r1)
+
+lis r12, RuneMgr__sInstance@ha
+lwz r12, RuneMgr__sInstance@l(r12)
+cmpwi r12, 0
+beq exit_syncGpuForCameraRune
+
+lwz r11, 0x4C(r12)
+extrwi. r11, r11, 1, 27 ; bit 4 is set while any rune is being used
+beq exit_syncGpuForCameraRune
+
+lwz r11, 0x1D4(r12)
+cmpwi r11, 5 ; RuneType_Camera
+bne exit_syncGpuForCameraRune
+
+bla import.gx2.GX2DrawDone
+
+exit_syncGpuForCameraRune:
+lwz r0, 0x14(r1)
+addi r1, r1, 0x10
+mtlr r0
+blr
+
+; this used to be the GX2DrawDone call between the two draw done callbacks in sead::GameFrameworkCafe::presentAndDrawDone
+0x031FAA10 = bla syncGpuForCameraRune
+
 ; sead::GameFrameworkCafe::presentAndDrawDone outputs the frame to the regular screen. We only need that for the right eye.
 ; this is a simplified version for the left eye, that does enough to keep the game happy but doesn't actually present anything.
 simplified_sead_GameFrameworkCafe_presentAndDrawDone:
@@ -44,6 +81,7 @@ cmpwi r4, 0
 beq exit_simplified_sead_GameFrameworkCafe_presentAndDrawDone
 
 bla import.gx2.GX2Flush
+bl syncGpuForCameraRune
 lwz r7, 0x370(r31)
 mtctr r7
 li r3, 1

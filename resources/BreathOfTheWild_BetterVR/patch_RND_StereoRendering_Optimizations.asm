@@ -32,7 +32,7 @@ addi r1, r1, 0x10
 blr
 
 0x031FAB1C = bla doGx2DrawDoneAfterSwapBuffers
-0x031FAA10 = nop
+; the earlier GX2DrawDone at 0x031FAA10 is replaced by syncGpuForCameraRune in patch_RND_StereoRendering.asm, which only keeps it while the camera rune is used
 
 ; --------------------------------------------------------------------------------
 ; Patches below disable the shadow map projection matrices updates to prevent a mismatch when applying the old one
