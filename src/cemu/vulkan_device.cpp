@@ -179,6 +179,11 @@ VkResult VulkanDevice::CreateInstance(PFN_vkCreateInstance createInstanceFunc, c
 const std::vector<std::string> additionalDeviceExtensions = {
     VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME,
     VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME,
+#ifdef _WIN32
+    // an OpenXR layer that gives the runtime a D3D12 session in place of ours (OFXR's frame generation) shares a D3D12 fence with this device.
+    // OFXR only requests the extension for that itself under XR_KHR_vulkan_enable, so with enable2 its swapchains fail to create without this.
+    "VK_KHR_external_semaphore_win32",
+#endif
 #if ENABLE_VK_DEVICE_FAULT
     VK_EXT_DEVICE_FAULT_EXTENSION_NAME,
 #endif
